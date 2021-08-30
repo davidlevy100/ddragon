@@ -1,7 +1,7 @@
-// Package cdragon offers methods to download cdragon images
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,79 +9,146 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sync"
+	"time"
 )
 
-func getPatch() (string, error) {
+const (
+	VERSION_URL  = "https://ddragon.leagueoflegends.com/api/versions.json"
+	CHAMP_URL    = "https://ddragon.leagueoflegends.com/cdn/%s/data/en_US/champion.json"
+	CENTERED_URL = "https://cdn.communitydragon.org/%s/champion/%s/splash-art/centered"
+	SPLASH_URL   = "https://cdn.communitydragon.org/%s/champion/%s/splash-art"
+	ICON_URL     = "https://cdn.communitydragon.org/%s/champion/%s/square"
+	PORTRAIT_URL = "https://cdn.communitydragon.org/%s/champion/%s/portrait"
+	WAIT         = 75
+)
 
-	var versions []string
+func main() {
 
-	url := "https://ddragon.leagueoflegends.com/api/versions.json"
-	method := "GET"
+	cdragonClient := &http.Client{
+		Timeout: time.Second * 10,
+	}
 
-	client := &http.Client{}
-	req, err := http.NewRequest(method, url, nil)
+	patch, err := getPatch(cdragonClient)
+	if err != nil {
+		fmt.Println("Could not find patch info")
+		return
+	}
 
+	names, err := getNames(cdragonClient, patch)
+	if err != nil {
+		fmt.Println("Could not get champ names")
+		return
+	}
+
+	paths := map[string]string{
+		"splash":   fmt.Sprintf("%s/Splash", patch),
+		"centered": fmt.Sprintf("%s/SplashCentered", patch),
+		"icon":     fmt.Sprintf("%s/Icon", patch),
+		"portrait": fmt.Sprintf("%s/Portrait", patch),
+	}
+
+	err = os.MkdirAll(patch, os.ModePerm)
+	if err != nil {
+		fmt.Println("Could not create required folder:", patch)
+		return
+	}
+
+	for _, this_path := range paths {
+		err := os.MkdirAll(this_path, os.ModePerm)
+		if err != nil {
+			fmt.Println("Could not create required folder:", this_path)
+			return
+		}
+
+	}
+
+	logname := fmt.Sprintf("%s/logs.txt", patch)
+
+	logfile, err := os.OpenFile(logname, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		fmt.Println("Could not create log file")
+		return
+	}
+	log.SetOutput(logfile)
+
+	var wg sync.WaitGroup
+
+	for _, this_name := range names {
+
+		urls := map[string]string{
+			"splash":   fmt.Sprintf(SPLASH_URL, patch, this_name),
+			"centered": fmt.Sprintf(CENTERED_URL, patch, this_name),
+			"icon":     fmt.Sprintf(ICON_URL, patch, this_name),
+			"portrait": fmt.Sprintf(PORTRAIT_URL, patch, this_name),
+		}
+
+		for imageType, url := range urls {
+			file_path := fmt.Sprintf("%s/%s.jpg", paths[imageType], this_name)
+			wg.Add(1)
+			go getImage(cdragonClient, url, file_path, &wg)
+		}
+
+		time.Sleep(WAIT * time.Millisecond)
+
+	}
+
+	wg.Wait()
+
+	fmt.Println("Done")
+}
+
+func getPatch(client *http.Client) (string, error) {
+
+	resp, err := client.Get(VERSION_URL)
 	if err != nil {
 		return "", err
 	}
 
-	res, err := client.Do(req)
-	if err != nil {
-		return fmt.Sprintf("%s", err), err
-	}
+	defer resp.Body.Close()
 
-	defer res.Body.Close()
+	var versions []string
 
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Sprintf("%s", err), err
+		return "", err
 	}
 
 	err = json.Unmarshal(body, &versions)
 	if err != nil {
-		return fmt.Sprintf("%s", err), err
+		return "", err
 	}
 
 	return versions[0], nil
 
 }
 
-func getNames(patch string) ([]string, error) {
-
+func getNames(client *http.Client, patch string) ([]string, error) {
 	var results []string
-
 	var names map[string]interface{}
 
-	url := fmt.Sprintf("http://ddragon.leagueoflegends.com/cdn/%s/data/en_US/champion.json", patch)
-	method := "GET"
+	url := fmt.Sprintf(CHAMP_URL, patch)
 
-	client := &http.Client{}
-	req, err := http.NewRequest(method, url, nil)
-
+	resp, err := client.Get(url)
 	if err != nil {
-		return []string{}, err
+		return nil, err
 	}
 
-	res, err := client.Do(req)
-	if err != nil {
-		return []string{}, err
-	}
+	defer resp.Body.Close()
 
-	defer res.Body.Close()
-
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return []string{}, err
+		return nil, err
 	}
 
 	err = json.Unmarshal(body, &names)
 	if err != nil {
-		return []string{}, err
+		return nil, err
 	}
 
-	d, _ := names["data"]
+	data := names["data"].(map[string]interface{})
 
-	for key, _ := range d.(map[string]interface{}) {
+	for key := range data {
 		results = append(results, key)
 	}
 
@@ -89,62 +156,37 @@ func getNames(patch string) ([]string, error) {
 
 }
 
-func getImages(patch string, names []string) {
+func getImage(client *http.Client, url, path string, wg *sync.WaitGroup) {
 
-	for _, name := range names {
-
-		url := fmt.Sprintf("https://cdn.communitydragon.org/%s/champion/%s/splash-art/centered", patch, name)
-
-		getImage(name, url)
-
-	}
-
-}
-
-func getImage(name, url string) {
-
-	response, e := http.Get(url)
-	if e != nil {
-		log.Fatal(e)
-	}
-	defer response.Body.Close()
-
-	saveImage(name, response.Body)
-
-}
-
-func saveImage(name string, imageBytes io.ReadCloser) {
-
-	os.Mkdir("SplashCentered", 0777)
-
-	file, err := os.Create(fmt.Sprintf("SplashCentered/%s.jpg", name))
+	resp, err := client.Get(url)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return
 	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		log.Println(resp.StatusCode, url)
+		return
+	}
+
+	var data bytes.Buffer
+
+	_, err = io.Copy(&data, resp.Body)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	file, err := os.Create(path)
+	if err != nil {
+		log.Printf("could not save %s, %v\n", path, err)
+		return
+	}
+
+	defer wg.Done()
 	defer file.Close()
 
-	_, err = io.Copy(file, imageBytes)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Printf("saved %s.jpg\n", name)
-
-}
-
-func main() {
-
-	patch, err := getPatch()
-	if err != nil {
-		fmt.Println("Could not find patch info")
-		return
-	}
-
-	names, err := getNames(patch)
-	if err != nil {
-		fmt.Println("Could not get champ names")
-		return
-	}
-
-	getImages(patch, names)
+	file.Write(data.Bytes())
+	fmt.Println("writing", path)
 
 }

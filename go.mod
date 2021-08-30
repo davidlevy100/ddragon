@@ -1,3 +1,3 @@
-module github.com/youcoulddoworse/cdragon
+module cdragon
 
-go 1.15
+go 1.16
