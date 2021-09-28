@@ -14,21 +14,23 @@ import (
 )
 
 const (
-	VERSION_URL  = "https://ddragon.leagueoflegends.com/api/versions.json"
-	CHAMP_URL    = "https://ddragon.leagueoflegends.com/cdn/%s/data/en_US/champion.json"
-	CENTERED_URL = "https://cdn.communitydragon.org/%s/champion/%s/splash-art/centered"
-	SPLASH_URL   = "https://cdn.communitydragon.org/%s/champion/%s/splash-art"
-	ICON_URL     = "https://cdn.communitydragon.org/%s/champion/%s/square"
-	PORTRAIT_URL = "https://cdn.communitydragon.org/%s/champion/%s/portrait"
-	WAIT         = 75
+	versionURL  = "https://ddragon.leagueoflegends.com/api/versions.json"
+	champURL    = "https://ddragon.leagueoflegends.com/cdn/%s/data/en_US/champion.json"
+	centeredURL = "https://cdn.communitydragon.org/%s/champion/%s/splash-art/centered"
+	splashURL   = "https://cdn.communitydragon.org/%s/champion/%s/splash-art"
+	iconURL     = "https://cdn.communitydragon.org/%s/champion/%s/square"
+	portraitURL = "https://cdn.communitydragon.org/%s/champion/%s/portrait"
+	waitTime    = 75
 )
 
 func main() {
 
+	//create global client for speed
 	cdragonClient := &http.Client{
 		Timeout: time.Second * 10,
 	}
 
+	//
 	patch, err := getPatch(cdragonClient)
 	if err != nil {
 		fmt.Println("Could not find patch info")
@@ -54,10 +56,10 @@ func main() {
 		return
 	}
 
-	for _, this_path := range paths {
-		err := os.MkdirAll(this_path, os.ModePerm)
+	for _, thisPath := range paths {
+		err := os.MkdirAll(thisPath, os.ModePerm)
 		if err != nil {
-			fmt.Println("Could not create required folder:", this_path)
+			fmt.Println("Could not create required folder:", thisPath)
 			return
 		}
 
@@ -74,22 +76,22 @@ func main() {
 
 	var wg sync.WaitGroup
 
-	for _, this_name := range names {
+	for _, thisName := range names {
 
 		urls := map[string]string{
-			"splash":   fmt.Sprintf(SPLASH_URL, patch, this_name),
-			"centered": fmt.Sprintf(CENTERED_URL, patch, this_name),
-			"icon":     fmt.Sprintf(ICON_URL, patch, this_name),
-			"portrait": fmt.Sprintf(PORTRAIT_URL, patch, this_name),
+			"splash":   fmt.Sprintf(splashURL, patch, thisName),
+			"centered": fmt.Sprintf(centeredURL, patch, thisName),
+			"icon":     fmt.Sprintf(iconURL, patch, thisName),
+			"portrait": fmt.Sprintf(portraitURL, patch, thisName),
 		}
 
 		for imageType, url := range urls {
-			file_path := fmt.Sprintf("%s/%s.jpg", paths[imageType], this_name)
+			filePath := fmt.Sprintf("%s/%s.jpg", paths[imageType], thisName)
 			wg.Add(1)
-			go getImage(cdragonClient, url, file_path, &wg)
+			go getImage(cdragonClient, url, filePath, &wg)
 		}
 
-		time.Sleep(WAIT * time.Millisecond)
+		time.Sleep(waitTime * time.Millisecond)
 
 	}
 
@@ -100,7 +102,7 @@ func main() {
 
 func getPatch(client *http.Client) (string, error) {
 
-	resp, err := client.Get(VERSION_URL)
+	resp, err := client.Get(versionURL)
 	if err != nil {
 		return "", err
 	}
@@ -127,7 +129,7 @@ func getNames(client *http.Client, patch string) ([]string, error) {
 	var results []string
 	var names map[string]interface{}
 
-	url := fmt.Sprintf(CHAMP_URL, patch)
+	url := fmt.Sprintf(champURL, patch)
 
 	resp, err := client.Get(url)
 	if err != nil {
