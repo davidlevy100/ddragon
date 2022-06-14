@@ -79,7 +79,7 @@ func main() {
 	for _, thisName := range names {
 
 		urls := map[string]string{
-			"splash":   fmt.Sprintf(splashURL, patch, thisName),
+			"splash":   fmt.Sprintf(splashURL, thisName),
 			"centered": fmt.Sprintf(centeredURL, patch, thisName),
 			"icon":     fmt.Sprintf(iconURL, patch, thisName),
 			"portrait": fmt.Sprintf(portraitURL, patch, thisName),
