@@ -32,12 +32,12 @@ type imageFile struct {
 
 func main() {
 	// create global client for speed
-	cdragonClient := &http.Client{
+	ddragonClient := &http.Client{
 		Timeout: time.Second * 10,
 	}
 
 	// get latest patch version number
-	patch, err := getPatch(cdragonClient)
+	patch, err := getPatch(ddragonClient)
 	if err != nil {
 		fmt.Println("Could not find patch info")
 		return
@@ -76,7 +76,7 @@ func main() {
 	}
 	log.SetOutput(logfile)
 
-	names, err := getNames(cdragonClient, patch)
+	names, err := getNames(ddragonClient, patch)
 	if err != nil {
 		fmt.Println("Could not get champ names")
 		return
@@ -119,7 +119,7 @@ func main() {
 
 	imageFiles = append(imageFiles, f)
 
-	ch := collector(cdragonClient, imageFiles)
+	ch := collector(ddragonClient, imageFiles)
 	sink(ch)
 
 }
