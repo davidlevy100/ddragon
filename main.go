@@ -78,6 +78,10 @@ func main() {
 
 }
 
+// collector creates and owns the imageFile channel
+// and is responsible for closing it
+// collector greates a goroutine for each image to download
+// and puts the result on the imageFile channel
 func collector(client *http.Client, imageFiles []imageFile) <-chan imageFile {
 
 	var wg sync.WaitGroup
@@ -121,6 +125,9 @@ func collector(client *http.Client, imageFiles []imageFile) <-chan imageFile {
 	return out
 }
 
+// sink recieves image files on the read-only imageFile channel
+// the range loop will automaticaly stop when the channel's owner
+// closes the channel
 func sink(ch <-chan imageFile) {
 
 	for f := range ch {
@@ -141,6 +148,9 @@ func sink(ch <-chan imageFile) {
 
 }
 
+// getPatch reads from ddragons `versions.json` file.
+// getPatch assumes the file is in sorted order
+// and the zeroth element is the latest patch number
 func getPatch(client *http.Client, url string) (string, error) {
 
 	resp, err := client.Get(url)
@@ -166,8 +176,13 @@ func getPatch(client *http.Client, url string) (string, error) {
 
 }
 
+// getNames reads from ddragon's 'champions.json' file
+// the champ names are the keys within the json file
 func getNames(client *http.Client, url, patch string) ([]string, error) {
 	var results []string
+
+	// the keys change in the json file
+	// so not using marshalling or structs
 	var names map[string]interface{}
 
 	resp, err := client.Get(url)
@@ -187,6 +202,7 @@ func getNames(client *http.Client, url, patch string) ([]string, error) {
 		return nil, err
 	}
 
+	// this is used to grab the champ keys
 	data := names["data"].(map[string]interface{})
 
 	for key := range data {
@@ -197,6 +213,8 @@ func getNames(client *http.Client, url, patch string) ([]string, error) {
 
 }
 
+// getImageFiles compiles a slice of imageFile structs
+// from the names, paths, and the current patch
 func getImageFiles(names []string, patch string, paths map[string]string) ([]imageFile, error) {
 
 	if len(names) == 0 {
@@ -245,6 +263,8 @@ func getImageFiles(names []string, patch string, paths map[string]string) ([]ima
 
 }
 
+// createFolders makes the folders in the current directory
+// and returns the filepaths for later processing
 func createFolders(patch string) (map[string]string, error) {
 
 	paths := map[string]string{
