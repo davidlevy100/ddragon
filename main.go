@@ -86,7 +86,7 @@ func collector(client *http.Client, imageFiles []imageFile) <-chan imageFile {
 
 	var wg sync.WaitGroup
 
-	out := make(chan imageFile, len(imageFiles))
+	out := make(chan imageFile)
 
 	for _, i := range imageFiles {
 		wg.Add(1)
