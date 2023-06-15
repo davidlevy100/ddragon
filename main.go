@@ -2,11 +2,8 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -22,11 +19,11 @@ const (
 	iconURL      = "http://ddragon.leagueoflegends.com/cdn/%s/img/champion/%s.png"
 	portraitURL  = "http://ddragon.leagueoflegends.com/cdn/img/champion/loading/%s_0.jpg"
 	runesURL     = "http://ddragon.leagueoflegends.com/cdn/img/%s.png"
-	splashPath   = "assets/%s/Splash"
-	centeredPath = "assets/%s/SplashCentered"
-	iconPath     = "assets/%s/Icon"
-	portraitPath = "assets/%s/Portrait"
-	runesPath    = "assets/%s/Runes"
+	splashPath   = "assets/%s/champs/Splash"
+	centeredPath = "assets/%s/champs/SplashCentered"
+	iconPath     = "assets/%s/champs/Icon"
+	portraitPath = "assets/%s/champs/Portrait"
+	runesPath    = "assets/%s/runes"
 	assetPath    = "assets/%s"
 	waitTime     = 0
 )
@@ -52,23 +49,33 @@ func main() {
 		return
 	}
 
-	// get names of all champs in latest patch
-	champs := fmt.Sprintf(champURL, latestPatch)
-	names, err := getNames(ddragonClient, champs, latestPatch)
+	logname := fmt.Sprintf("assets/%s/logs.txt", latestPatch)
+
+	logfile, err := os.OpenFile(logname, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+	log.SetOutput(logfile)
 
-	paths, err := createFolders(latestPatch)
+	var imageFiles []imageFile
+
+	champFiles, err := getChampImageFiles(ddragonClient, latestPatch)
 	if err != nil {
 		fmt.Println(err)
-		return
+	} else {
+		imageFiles = append(imageFiles, champFiles...)
 	}
 
-	imageFiles, err := getImageFiles(names, latestPatch, paths)
+	runeFiles, err := getRuneImageFiles(ddragonClient, latestPatch)
 	if err != nil {
 		fmt.Println(err)
+	} else {
+		imageFiles = append(imageFiles, runeFiles...)
+	}
+
+	if len(imageFiles) == 0 {
+		fmt.Println("could not download any files")
 		return
 	}
 
@@ -147,157 +154,5 @@ func sink(ch <-chan imageFile) {
 
 		}(f)
 	}
-
-}
-
-// getPatch reads from ddragons `versions.json` file.
-// getPatch assumes the file is in sorted order
-// and the zeroth element is the latest patch number
-func getPatch(client *http.Client, url string) (string, error) {
-
-	resp, err := client.Get(url)
-	if err != nil {
-		return "", err
-	}
-
-	defer resp.Body.Close()
-
-	var versions []string
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-
-	err = json.Unmarshal(body, &versions)
-	if err != nil {
-		return "", err
-	}
-
-	return versions[0], nil
-
-}
-
-// getNames reads from ddragon's 'champions.json' file
-// the champ names are the keys within the json file
-func getNames(client *http.Client, url, patch string) ([]string, error) {
-	var results []string
-
-	// the keys change in the json file
-	// so not using marshalling or structs
-	var names map[string]interface{}
-
-	resp, err := client.Get(url)
-	if err != nil {
-		return nil, err
-	}
-
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	err = json.Unmarshal(body, &names)
-	if err != nil {
-		return nil, err
-	}
-
-	// this is used to grab the champ keys
-	data := names["data"].(map[string]interface{})
-
-	for key := range data {
-		results = append(results, key)
-	}
-
-	return results, nil
-
-}
-
-// getImageFiles compiles a slice of imageFile structs
-// from the names, paths, and the current patch
-func getImageFiles(names []string, patch string, paths map[string]string) ([]imageFile, error) {
-
-	if len(names) == 0 {
-		return nil, errors.New("no champion names found to process")
-	}
-
-	imageFiles := []imageFile{}
-
-	for _, n := range names {
-
-		// because the FiddleSticks icon is improperly named in ddragon
-		if n == "Fiddlesticks" {
-			n = "FiddleSticks"
-		}
-
-		urls := map[string]string{
-			"splash":   fmt.Sprintf(splashURL, n),
-			"centered": fmt.Sprintf(centeredURL, n),
-			"icon":     fmt.Sprintf(iconURL, patch, n),
-			"portrait": fmt.Sprintf(portraitURL, n),
-		}
-
-		for imageType, u := range urls {
-			filePath := fmt.Sprintf("%s/%s.jpg", paths[imageType], n)
-
-			i := imageFile{
-				name: n,
-				url:  u,
-				path: filePath,
-			}
-
-			imageFiles = append(imageFiles, i)
-		}
-	}
-
-	// because the FiddleSticks icon is improperly named in ddragon
-	f := imageFile{
-		name: "FiddleSticks",
-		url:  fmt.Sprintf(iconURL, patch, "Fiddlesticks"),
-		path: fmt.Sprintf("%s/%s.jpg", paths["icon"], "FiddleSticks"),
-	}
-
-	imageFiles = append(imageFiles, f)
-
-	return imageFiles, nil
-
-}
-
-// createFolders makes the folders in the current directory
-// and returns the filepaths for later processing
-func createFolders(patch string) (map[string]string, error) {
-
-	paths := map[string]string{
-		"splash":   fmt.Sprintf(splashPath, patch),
-		"centered": fmt.Sprintf(centeredPath, patch),
-		"icon":     fmt.Sprintf(iconPath, patch),
-		"portrait": fmt.Sprintf(portraitPath, patch),
-	}
-
-	newPath := fmt.Sprintf(assetPath, patch)
-
-	err := os.MkdirAll(newPath, os.ModePerm)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, thisPath := range paths {
-		err := os.MkdirAll(thisPath, os.ModePerm)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	logname := fmt.Sprintf("assets/%s/logs.txt", patch)
-
-	logfile, err := os.OpenFile(logname, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
-	if err != nil {
-		return nil, err
-	}
-	log.SetOutput(logfile)
-
-	return paths, nil
 
 }
