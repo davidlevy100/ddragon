@@ -21,10 +21,12 @@ const (
 	splashURL    = "http://ddragon.leagueoflegends.com/cdn/img/champion/splash/%s_0.jpg"
 	iconURL      = "http://ddragon.leagueoflegends.com/cdn/%s/img/champion/%s.png"
 	portraitURL  = "http://ddragon.leagueoflegends.com/cdn/img/champion/loading/%s_0.jpg"
+	runesURL     = "http://ddragon.leagueoflegends.com/cdn/img/%s.png"
 	splashPath   = "assets/%s/Splash"
 	centeredPath = "assets/%s/SplashCentered"
 	iconPath     = "assets/%s/Icon"
 	portraitPath = "assets/%s/Portrait"
+	runesPath    = "assets/%s/Runes"
 	assetPath    = "assets/%s"
 	waitTime     = 0
 )
