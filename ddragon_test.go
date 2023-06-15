@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"regexp"
 	"testing"
@@ -32,5 +33,26 @@ func TestGetPatch(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestGetRuneData(t *testing.T) {
+
+	testClient := &http.Client{
+		Timeout: time.Second * 10,
+	}
+
+	patch, err := getPatch(testClient, versionURL)
+	if err != nil {
+		t.Error(err)
+	}
+
+	url := fmt.Sprintf(runesUrl, patch)
+
+	data, err := getRuneData(testClient, url)
+	if err != nil {
+		t.Error(err)
+	}
+
+	t.Log(data)
 
 }

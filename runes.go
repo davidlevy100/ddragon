@@ -4,42 +4,51 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 )
 
-// getRuneNames reads from ddragon's 'Runeions.json' file
+type RuneData []struct {
+	ID    int    `json:"id"`
+	Key   string `json:"key"`
+	Icon  string `json:"icon"`
+	Name  string `json:"name"`
+	Slots []struct {
+		Runes []struct {
+			ID   int    `json:"id"`
+			Key  string `json:"key"`
+			Icon string `json:"icon"`
+			Name string `json:"name"`
+		} `json:"runes"`
+	} `json:"slots"`
+}
+
+// getRuneNames reads from ddragon's 'RunesReforged.json' file
 // the Rune names are the keys within the json file
-func getRuneNames(client *http.Client, url, patch string) ([]string, error) {
-	var results []string
+func getRuneData(client *http.Client, url string) (map[string]string, error) {
 
-	// the keys change in the json file
-	// so not using marshalling or structs
-	var names map[string]interface{}
+	var data RuneData
 
-	resp, err := client.Get(url)
+	body, err := getJson(client, url)
 	if err != nil {
 		return nil, err
 	}
 
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
+	err = json.Unmarshal(body, &data)
 	if err != nil {
 		return nil, err
 	}
 
-	err = json.Unmarshal(body, &names)
-	if err != nil {
-		return nil, err
-	}
+	var results = make(map[string]string)
 
-	// this is used to grab the Rune keys
-	data := names["data"].(map[string]interface{})
+	for _, thisRuneFamily := range data {
+		results[thisRuneFamily.Key] = fmt.Sprintf(runeImageURL, thisRuneFamily.Icon)
 
-	for key := range data {
-		results = append(results, key)
+		for _, thisSlot := range thisRuneFamily.Slots {
+			for _, thisRune := range thisSlot.Runes {
+				results[thisRune.Key] = fmt.Sprintf(runeImageURL, thisRune.Icon)
+			}
+		}
 	}
 
 	return results, nil
@@ -48,49 +57,24 @@ func getRuneNames(client *http.Client, url, patch string) ([]string, error) {
 
 // getRuneImageFiles compiles a slice of imageFile structs
 // from the names, paths, and the current patch
-func getRuneImageInfo(names []string, patch string, paths map[string]string) ([]imageFile, error) {
+func getRuneImageInfo(runeImageUrls map[string]string, path string) ([]imageFile, error) {
 
-	if len(names) == 0 {
-		return nil, errors.New("no Runeion names found to process")
+	if len(runeImageUrls) == 0 {
+		return nil, errors.New("no rune names found to process")
 	}
 
 	imageFiles := []imageFile{}
 
-	for _, n := range names {
+	for key, url := range runeImageUrls {
 
-		// because the FiddleSticks icon is improperly named in ddragon
-		if n == "Fiddlesticks" {
-			n = "FiddleSticks"
+		i := imageFile{
+			name: key,
+			url:  url,
+			path: fmt.Sprintf("%s/%s.png", path, key),
 		}
 
-		urls := map[string]string{
-			"splash":   fmt.Sprintf(splashURL, n),
-			"centered": fmt.Sprintf(centeredURL, n),
-			"icon":     fmt.Sprintf(iconURL, patch, n),
-			"portrait": fmt.Sprintf(portraitURL, n),
-		}
-
-		for imageType, u := range urls {
-			filePath := fmt.Sprintf("%s/%s.jpg", paths[imageType], n)
-
-			i := imageFile{
-				name: n,
-				url:  u,
-				path: filePath,
-			}
-
-			imageFiles = append(imageFiles, i)
-		}
+		imageFiles = append(imageFiles, i)
 	}
-
-	// because the FiddleSticks icon is improperly named in ddragon
-	f := imageFile{
-		name: "FiddleSticks",
-		url:  fmt.Sprintf(iconURL, patch, "Fiddlesticks"),
-		path: fmt.Sprintf("%s/%s.jpg", paths["icon"], "FiddleSticks"),
-	}
-
-	imageFiles = append(imageFiles, f)
 
 	return imageFiles, nil
 
@@ -98,52 +82,37 @@ func getRuneImageInfo(names []string, patch string, paths map[string]string) ([]
 
 // createRuneFolders makes the folders in the current directory
 // and returns the filepaths for later processing
-func createRuneFolders(patch string) (map[string]string, error) {
+func createRuneFolder(patch string) (string, error) {
 
-	paths := map[string]string{
-		"splash":   fmt.Sprintf(splashPath, patch),
-		"centered": fmt.Sprintf(centeredPath, patch),
-		"icon":     fmt.Sprintf(iconPath, patch),
-		"portrait": fmt.Sprintf(portraitPath, patch),
-	}
+	path := fmt.Sprintf(runesPath, patch)
 
-	newPath := fmt.Sprintf(assetPath, patch)
-
-	err := os.MkdirAll(newPath, os.ModePerm)
+	err := os.MkdirAll(path, os.ModePerm)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	for _, thisPath := range paths {
-		err := os.MkdirAll(thisPath, os.ModePerm)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return paths, nil
+	return path, nil
 
 }
 
 func getRuneImageFiles(ddragonClient *http.Client, latestPatch string) ([]imageFile, error) {
 
-	// get names of all Runes in latest patch
-	Runes := fmt.Sprintf(runesURL, latestPatch)
-	names, err := getRuneNames(ddragonClient, Runes, latestPatch)
+	url := fmt.Sprintf(runesUrl, latestPatch)
+
+	runeImageUrls, err := getRuneData(ddragonClient, url)
 	if err != nil {
 		return nil, err
 	}
 
-	paths, err := createRuneFolders(latestPatch)
+	path, err := createRuneFolder(latestPatch)
 	if err != nil {
 		return nil, err
 	}
 
-	imageFiles, err := getRuneImageInfo(names, latestPatch, paths)
+	imageFiles, err := getRuneImageInfo(runeImageUrls, path)
 	if err != nil {
 		return nil, err
-	} else {
-		return imageFiles, nil
 	}
+	return imageFiles, nil
 
 }

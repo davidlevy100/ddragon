@@ -18,7 +18,8 @@ const (
 	splashURL    = "http://ddragon.leagueoflegends.com/cdn/img/champion/splash/%s_0.jpg"
 	iconURL      = "http://ddragon.leagueoflegends.com/cdn/%s/img/champion/%s.png"
 	portraitURL  = "http://ddragon.leagueoflegends.com/cdn/img/champion/loading/%s_0.jpg"
-	runesURL     = "http://ddragon.leagueoflegends.com/cdn/img/%s.png"
+	runesUrl     = "http://ddragon.leagueoflegends.com/cdn/%s/data/en_US/runesReforged.json"
+	runeImageURL = "http://ddragon.leagueoflegends.com/cdn/img/%s"
 	splashPath   = "assets/%s/champs/Splash"
 	centeredPath = "assets/%s/champs/SplashCentered"
 	iconPath     = "assets/%s/champs/Icon"
@@ -47,6 +48,13 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 		return
+	}
+
+	newPath := fmt.Sprintf(assetPath, latestPatch)
+
+	err = os.MkdirAll(newPath, os.ModePerm)
+	if err != nil {
+		fmt.Println(err)
 	}
 
 	logname := fmt.Sprintf("assets/%s/logs.txt", latestPatch)

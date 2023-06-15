@@ -4,28 +4,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 )
 
 // getChampNames reads from ddragon's 'champions.json' file
 // the champ names are the keys within the json file
-func getChampNames(client *http.Client, url, patch string) ([]string, error) {
+func getChampNames(client *http.Client, url string) ([]string, error) {
 	var results []string
 
 	// the keys change in the json file
 	// so not using marshalling or structs
 	var names map[string]interface{}
 
-	resp, err := client.Get(url)
-	if err != nil {
-		return nil, err
-	}
-
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := getJson(client, url)
 	if err != nil {
 		return nil, err
 	}
@@ -107,13 +99,6 @@ func createChampFolders(patch string) (map[string]string, error) {
 		"portrait": fmt.Sprintf(portraitPath, patch),
 	}
 
-	newPath := fmt.Sprintf(assetPath, patch)
-
-	err := os.MkdirAll(newPath, os.ModePerm)
-	if err != nil {
-		return nil, err
-	}
-
 	for _, thisPath := range paths {
 		err := os.MkdirAll(thisPath, os.ModePerm)
 		if err != nil {
@@ -128,8 +113,8 @@ func createChampFolders(patch string) (map[string]string, error) {
 func getChampImageFiles(ddragonClient *http.Client, latestPatch string) ([]imageFile, error) {
 
 	// get names of all champs in latest patch
-	champs := fmt.Sprintf(champURL, latestPatch)
-	names, err := getChampNames(ddragonClient, champs, latestPatch)
+	champPath := fmt.Sprintf(champURL, latestPatch)
+	names, err := getChampNames(ddragonClient, champPath)
 	if err != nil {
 		return nil, err
 	}
@@ -142,8 +127,6 @@ func getChampImageFiles(ddragonClient *http.Client, latestPatch string) ([]image
 	imageFiles, err := getChampImageInfo(names, latestPatch, paths)
 	if err != nil {
 		return nil, err
-	} else {
-		return imageFiles, nil
 	}
-
+	return imageFiles, nil
 }
