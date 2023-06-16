@@ -56,3 +56,25 @@ func TestGetRuneData(t *testing.T) {
 	t.Log(data)
 
 }
+
+func TestGetItemData(t *testing.T) {
+
+	testClient := &http.Client{
+		Timeout: time.Second * 10,
+	}
+
+	patch, err := getPatch(testClient, versionURL)
+	if err != nil {
+		t.Error(err)
+	}
+
+	url := fmt.Sprintf(itemsUrl, patch)
+
+	data, err := getItemData(testClient, url, patch)
+	if err != nil {
+		t.Error(err)
+	}
+
+	t.Log(data)
+
+}

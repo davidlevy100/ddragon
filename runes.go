@@ -8,6 +8,12 @@ import (
 	"os"
 )
 
+const (
+	runesUrl     = "http://ddragon.leagueoflegends.com/cdn/%s/data/en_US/runesReforged.json"
+	runeImageURL = "http://ddragon.leagueoflegends.com/cdn/img/%s"
+	runesPath    = "assets/%s/runes"
+)
+
 type RuneData []struct {
 	ID    int    `json:"id"`
 	Key   string `json:"key"`

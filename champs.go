@@ -8,6 +8,18 @@ import (
 	"os"
 )
 
+const (
+	champURL     = "http://ddragon.leagueoflegends.com/cdn/%s/data/en_US/champion.json"
+	centeredURL  = "http://ddragon.leagueoflegends.com/cdn/img/champion/centered/%s_0.jpg"
+	splashURL    = "http://ddragon.leagueoflegends.com/cdn/img/champion/splash/%s_0.jpg"
+	iconURL      = "http://ddragon.leagueoflegends.com/cdn/%s/img/champion/%s.png"
+	portraitURL  = "http://ddragon.leagueoflegends.com/cdn/img/champion/loading/%s_0.jpg"
+	splashPath   = "assets/%s/champs/Splash"
+	centeredPath = "assets/%s/champs/SplashCentered"
+	iconPath     = "assets/%s/champs/Icon"
+	portraitPath = "assets/%s/champs/Portrait"
+)
+
 // getChampNames reads from ddragon's 'champions.json' file
 // the champ names are the keys within the json file
 func getChampNames(client *http.Client, url string) ([]string, error) {

@@ -12,21 +12,9 @@ import (
 )
 
 const (
-	versionURL   = "http://ddragon.leagueoflegends.com/api/versions.json"
-	champURL     = "http://ddragon.leagueoflegends.com/cdn/%s/data/en_US/champion.json"
-	centeredURL  = "http://ddragon.leagueoflegends.com/cdn/img/champion/centered/%s_0.jpg"
-	splashURL    = "http://ddragon.leagueoflegends.com/cdn/img/champion/splash/%s_0.jpg"
-	iconURL      = "http://ddragon.leagueoflegends.com/cdn/%s/img/champion/%s.png"
-	portraitURL  = "http://ddragon.leagueoflegends.com/cdn/img/champion/loading/%s_0.jpg"
-	runesUrl     = "http://ddragon.leagueoflegends.com/cdn/%s/data/en_US/runesReforged.json"
-	runeImageURL = "http://ddragon.leagueoflegends.com/cdn/img/%s"
-	splashPath   = "assets/%s/champs/Splash"
-	centeredPath = "assets/%s/champs/SplashCentered"
-	iconPath     = "assets/%s/champs/Icon"
-	portraitPath = "assets/%s/champs/Portrait"
-	runesPath    = "assets/%s/runes"
-	assetPath    = "assets/%s"
-	waitTime     = 0
+	versionURL = "http://ddragon.leagueoflegends.com/api/versions.json"
+	assetPath  = "assets/%s"
+	waitTime   = 1
 )
 
 type imageFile struct {
@@ -57,7 +45,7 @@ func main() {
 		fmt.Println(err)
 	}
 
-	logname := fmt.Sprintf("assets/%s/logs.txt", latestPatch)
+	logname := fmt.Sprintf("%s/logs.txt", newPath)
 
 	logfile, err := os.OpenFile(logname, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
@@ -80,6 +68,13 @@ func main() {
 		fmt.Println(err)
 	} else {
 		imageFiles = append(imageFiles, runeFiles...)
+	}
+
+	itemFiles, err := getItemImageFiles(ddragonClient, latestPatch)
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		imageFiles = append(imageFiles, itemFiles...)
 	}
 
 	if len(imageFiles) == 0 {
