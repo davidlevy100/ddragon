@@ -14,7 +14,7 @@ import (
 const (
 	versionURL = "http://ddragon.leagueoflegends.com/api/versions.json"
 	assetPath  = "assets/%s"
-	waitTime   = 1
+	waitTime   = 10
 )
 
 type imageFile struct {
